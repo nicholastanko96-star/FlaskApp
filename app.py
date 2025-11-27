@@ -8,3 +8,7 @@ def hello_world():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+# Trigger CI workflow test
+@app.route("/test")
+def test_route():
+    return "Test OK"
