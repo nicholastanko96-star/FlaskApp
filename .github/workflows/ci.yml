@@ -9,8 +9,9 @@ on:
 env:
   IMAGE_NAME: flaskapp
 
-# ------------------ JOB 1 : TESTS ------------------
 jobs:
+
+  # -------------------- JOB 1 : TESTS --------------------
   tests:
     runs-on: ubuntu-latest
 
@@ -21,7 +22,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: "3.10"
 
     - name: Upgrade pip and install dependencies
       run: |
@@ -32,11 +33,11 @@ jobs:
       run: pytest
 
 
-  # ------------------ JOB 2 : BUILD IMAGE ------------------
+  # -------------------- JOB 2 : BUILD DOCKER IMAGE --------------------
   build:
     runs-on: ubuntu-latest
-    needs: tests      # ensures tests run BEFORE build
-    if: ${{ needs.tests.result == 'success' }}    # <- build only if tests pass
+    needs: tests                # must wait for tests to complete
+    if: ${{ needs.tests.result == 'success' }}   # only run if tests pass
 
     steps:
     - name: Checkout code
@@ -45,49 +46,55 @@ jobs:
     - name: Build Docker image
       run: docker build -t flaskapp-ci .
 
-  # ------------------ JOB 3 : PUSH IMAGE TO 2 REGISTRIES ------------------
+
+  # -------------------- JOB 3 : PUSH TO DOCKER HUB + GHCR --------------------
   push-image:
     runs-on: ubuntu-latest
-    needs: [ tests, build ]
-    if: ${{ needs.tests.result == 'success' }}
+    needs: [tests, build]
+    if: ${{ needs.tests.result == 'success' }}   # only push if tests passed
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    # Docker Hub login
+
+    # ----- Docker Hub Login -----
     - name: Log in to Docker Hub
       uses: docker/login-action@v2
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    # Private registry login
-    - name: Log in to private registry
+
+    # ----- GHCR Login (Private Registry) -----
+    - name: Log in to GHCR
       uses: docker/login-action@v2
       with:
-        registry: ${{ secrets.PRIVATE_REGISTRY_URL }}
-        username: ${{ secrets.PRIVATE_REGISTRY_USER }}
-        password: ${{ secrets.PRIVATE_REGISTRY_PASS }}
+        registry: ${{ secrets.PRIVATE_REGISTRY_URL }}   # ghcr.io
+        username: ${{ secrets.PRIVATE_REGISTRY_USER }}   # your GitHub username
+        password: ${{ secrets.PRIVATE_REGISTRY_PASS }}   # PAT with write:packages
 
-    - name: Tag and push Docker images
+
+    # ----- Tag and Push to Registries -----
+    - name: Tag and push images
       run: |
         # Push to Docker Hub
         docker tag flaskapp-ci ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
 
-        # Push to Private registry
-        docker tag flaskapp-ci ${{ secrets.PRIVATE_REGISTRY_URL }}/${{ env.IMAGE_NAME }}:latest
-        docker push ${{ secrets.PRIVATE_REGISTRY_URL }}/${{ env.IMAGE_NAME }}:latest
+        # Push to GitHub Container Registry (GHCR)
+        docker tag flaskapp-ci ghcr.io/${{ secrets.PRIVATE_REGISTRY_USER }}/${{ env.IMAGE_NAME }}:latest
+        docker push ghcr.io/${{ secrets.PRIVATE_REGISTRY_USER }}/${{ env.IMAGE_NAME }}:latest
 
-  # ------------------ JOB 4 : EMAIL NOTIFICATION IF TEST FAIL ------------------
+
+  # -------------------- JOB 4 : SEND EMAIL IF TESTS FAIL --------------------
   notify:
     runs-on: ubuntu-latest
     needs: tests
     if: ${{ needs.tests.result == 'failure' }}
 
     steps:
-    - name: Send email notification about failed tests
+    - name: Send email alert about failed tests
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: ${{ secrets.SMTP_SERVER }}
@@ -96,8 +103,15 @@ jobs:
         password: ${{ secrets.SMTP_PASSWORD }}
         from: ${{ secrets.EMAIL_FROM }}
         to: ${{ secrets.EMAIL_TO }}
-        subject: "❌ CI Tests Failed - FlaskApp"
-        body: "The tests have failed. Please check the GitHub Actions logs."
+        subject: "❌ CI Pipeline Failed - Tests Did Not Pass"
+        body: |
+          The test suite failed in the CI pipeline.
+          Repository: ${{ github.repository }}
+          Commit: ${{ github.sha }}
+          Branch: ${{ github.ref_name }}
+
+          Please check the GitHub Actions logs for more details.
+
 
 
 
