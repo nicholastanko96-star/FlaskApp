@@ -7,5 +7,5 @@ def test_index():
     assert response.status_code == 200
     assert response.data == b"Hello, World!"
 
-def test_force_failure():
-    assert False   # Intentional failure to trigger notification
+#def test_force_failure():
+ #   assert False   # Intentional failure to trigger notification
