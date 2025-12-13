@@ -6,3 +6,6 @@ def test_index():
     response = tester.get("/")
     assert response.status_code == 200
     assert response.data == b"Hello, World!"
+
+def test_force_failure():
+    assert False   # Intentional failure to trigger notification
