@@ -89,7 +89,7 @@ jobs:
 
 
   # -------------------- JOB 4 : SEND EMAIL IF TESTS FAIL --------------------
-      notify:
+  notify:
     runs-on: ubuntu-latest
     needs: tests
     if: ${{ always() && needs.tests.result == 'failure' }}
@@ -110,5 +110,4 @@ jobs:
           Repository: ${{ github.repository }}
           Branch: ${{ github.ref_name }}
           Commit: ${{ github.sha }}
-          Please check the GitHub Actions logs for more details.
 
